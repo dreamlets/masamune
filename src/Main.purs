@@ -40,11 +40,14 @@ foreign import cors :: forall e. Fn3 Request Response (ExpressM e Unit) (Express
 -- Youtube downloader
 foreign import data YTDL :: !
 type Youtube a = forall e. Eff ( ytdl :: YTDL | e ) a
-foreign import getInfo :: forall e. (Error -> Eff e Unit) -> (String -> Eff e Unit) -> String -> Youtube Unit
-foreign import downloadFromInfo :: forall e. String -> (Youtube (Readable () e))
+foreign import getInfo :: forall e a. (Error -> Eff e Unit) -> (a -> Eff e Unit) -> String -> Youtube Unit
+foreign import downloadFromInfo :: forall e a. a -> (Youtube (Readable () e))
 
-getInfo' :: forall e. String -> Aff ( ytdl :: YTDL | e ) String
+getInfo' :: forall e a. String -> Aff ( ytdl :: YTDL | e ) a
 getInfo' url = makeAff (\error success -> getInfo error success url)
+
+getTitle :: forall r. { title :: String | r } -> String
+getTitle i = i.title
 
 initState :: forall e. Eff (ref :: REF| e) AppState
 initState = newRef ([] :: AppStateData)
@@ -58,7 +61,7 @@ sliceYT path hash = do
   liftEff $ log "Slicing video\n"
   ff <- ChildProcess.spawn
                     "ffmpeg"
-                    ["-i", path, "-vf", "scale=128:128", ("images/" <> hash <> "-%03d.png")]
+                    ["-i", path, "-vf", "scale=-1:128,crop=128:128", ("images/" <> hash <> "-%05d.png")]
                     ChildProcess.defaultSpawnOptions { stdio = ChildProcess.inherit }
     -- Log exit code
   ChildProcess.onExit ff (\ex ->
@@ -93,6 +96,7 @@ submitHandler state = do
                       path = "videos/" <> hash <> ".flv"
                   yt <- liftEff $ downloadFromInfo i
                   fs <- liftEff $ createWriteStream path
+                  liftEff $ log $ "\nDownloading video: " <> (getTitle i)
                   liftEff $ yt `pipe` fs
                   liftEff $ onError yt (\e -> log $ show e)
                   liftEff $ onEnd yt $ void $ sliceYT path hash
