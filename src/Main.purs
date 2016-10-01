@@ -10,8 +10,6 @@ import Control.Monad.Eff.Exception (Error, error, message)
 import Control.Monad.Eff.Ref (REF, Ref, modifyRef', readRef, newRef)
 import Data.Either (Either(..))
 import Data.Function.Uncurried (Fn3)
-import Data.Hash (gHash)
-import Data.Ord (abs)
 import Data.Maybe (Maybe(..))
 import Node.Express.App (App, listenHttp, useOnError, get, useExternal, setProp)
 import Node.Express.Handler (Handler, nextThrow)
@@ -46,9 +44,10 @@ foreign import downloadFromInfo :: forall e a. a -> (Youtube (Readable () e))
 getInfo' :: forall e a. String -> Aff ( ytdl :: YTDL | e ) a
 getInfo' url = makeAff (\error success -> getInfo error success url)
 
-getTitle :: forall r. { title :: String | r } -> String
-getTitle i = i.title
+getVideoId :: forall r. { video_id :: String | r } -> String
+getVideoId i = i.video_id
 
+-- TODO Replace this with persistent data store
 initState :: forall e. Eff (ref :: REF| e) AppState
 initState = newRef ([] :: AppStateData)
 
@@ -57,17 +56,17 @@ sliceYT
   String
   -> String
   -> Eff ( cp :: CHILD_PROCESS, console :: CONSOLE | e ) ChildProcess
-sliceYT path hash = do
-  liftEff $ log "Slicing video\n"
+sliceYT path id = do
+  liftEff $ log $ "Slicing " <> id
   ff <- ChildProcess.spawn
                     "ffmpeg"
-                    ["-i", path, "-vf", "scale=-1:128,crop=128:128", ("images/" <> hash <> "-%05d.png")]
+                    ["-i", path, "-vf", "scale=-1:128,crop=128:128", ("images/" <> id <> "-%05d.png")]
                     ChildProcess.defaultSpawnOptions { stdio = ChildProcess.inherit }
     -- Log exit code
   ChildProcess.onExit ff (\ex ->
     case ex of
          (Normally i) -> if (i == 0)
-                            then log "\nDone slicing!"
+                            then log $ "\nDone slicing " <> id
                             else log "\nSomething went wrong - check ffmpeg output"
          (BySignal s) -> log $ "\nProcess stopped by signal: " <> (show s))
   pure ff
@@ -92,15 +91,15 @@ submitHandler state = do
           info <- liftAff $ attempt $ getInfo' url
           case info of
               (Right i) -> do
-                  let hash = (show <<< abs <<< gHash) url
-                      path = "videos/" <> hash <> ".flv"
+                  let id = getVideoId i
+                      path = "videos/" <> id <> ".flv"
                   yt <- liftEff $ downloadFromInfo i
                   fs <- liftEff $ createWriteStream path
-                  liftEff $ log $ "\nDownloading video: " <> (getTitle i)
+                  liftEff $ log $ "\nDownloading " <> id
                   liftEff $ yt `pipe` fs
                   liftEff $ onError yt (\e -> log $ show e)
-                  liftEff $ onEnd yt $ void $ sliceYT path hash
-                  sendJson {id: hash, path: path, state: "processing", url: url}
+                  liftEff $ onEnd yt $ void $ sliceYT path id
+                  sendJson {id, path, url, state: "processing"}
               (Left err) -> nextThrow err
        _ -> nextThrow $ error "Url parameter is required"
 

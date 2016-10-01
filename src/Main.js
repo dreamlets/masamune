@@ -22,6 +22,6 @@ exports.getInfo = function(errback) {
 
 exports.downloadFromInfo = function (info) {
   return function () {
-    return ytdl.downloadFromInfo(info, { filter: 'videoonly' });
+    return ytdl.downloadFromInfo(info, { quality: 'lowest', filter: 'videoonly' });
   }
 }
