@@ -1,0 +1,21 @@
+{
+  "name": "masamune",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "postinstall": "bower cache clean && bower install",
+    "start": "pulp -w run",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Josh Miller",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.1",
+    "express": "^4.14.0",
+    "ytdl-core": "^0.7.18"
+  }
+}

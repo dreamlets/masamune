@@ -1,0 +1,20 @@
+{
+  "name": "masamune",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "output"
+  ],
+  "dependencies": {
+    "purescript-console": "^1.0.0",
+    "purescript-express": "^0.4.0",
+    "purescript-hash": "^0.2.1",
+    "purescript-node-fs": "^2.0.0",
+    "purescript-node-process": "^2.0.0",
+    "purescript-node-child-process": "^2.0.0"
+  },
+  "devDependencies": {
+    "purescript-psci-support": "^1.0.0"
+  }
+}
